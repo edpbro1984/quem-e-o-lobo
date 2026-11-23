@@ -1481,8 +1481,10 @@ const PV_WORKER=[
   "    for(const s of SRC){try{const x=await import(s);if(x&&x.predict&&x.download){tts=x;break;}}catch(e){postMessage({op:'log',msg:s+': '+E(e)});}}",
   "    if(!tts){postMessage({op:'fail',msg:'biblioteca Piper não carregou'});return;}",
   "    try{const PM=tts.PATH_MAP;if(PM)for(const k in XV)if(!PM[k])PM[k]=XV[k];}catch(e){postMessage({op:'log',msg:'PATH_MAP: '+E(e)});}",
-  "    try{await tts.download(V,p=>{try{postMessage({op:'prog',loaded:p.loaded||0,total:p.total||0});}catch(_){}});",
-  "      await tts.predict({text:'ok.',voiceId:V});postMessage({op:'ready'});}",
+  "    try{const D=await (await navigator.storage.getDirectory()).getDirectoryHandle('piper',{create:true});",
+  "      for await (const [n,h] of D.entries()){try{const f=await h.getFile();if(f.size<2000)await D.removeEntry(n);}catch(e){try{await D.removeEntry(n);}catch(_){}}}}catch(e){postMessage({op:'log',msg:'cache: '+E(e)});}",
+  "    try{await tts.predict({text:'ok.',voiceId:V},p=>{try{postMessage({op:'prog',loaded:p.loaded||0,total:p.total||0});}catch(_){}});",
+  "      postMessage({op:'ready'});}",
   "    catch(e){postMessage({op:'fail',msg:'voz '+V+': '+E(e)});}}",
   "  else if(m.op==='say'){try{const wav=await tts.predict({text:m.text,voiceId:V});const buf=await wav.arrayBuffer();",
   "      postMessage({op:'wav',id:m.id,buf},[buf]);}catch(e){postMessage({op:'err',id:m.id,msg:E(e)});}}};"].join('\n');
