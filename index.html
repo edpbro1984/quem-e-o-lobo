@@ -770,6 +770,7 @@ if (meta.app && window.parent !== window) {
   <p id="vCnt">Voz: iniciadas 0 · silenciosas 0 · falhas 0</p>
   <button id="vTest">🔊 Testar voz</button>
   <button id="x-piper" aria-pressed="false">🎙️ Voz natural (Piper, beta): OFF</button>
+  <button id="x-pvoz">🗣️ Voz: Faber</button>
   <p id="x-piperSt">Voz natural desligada · usando a voz do navegador</p>
   <h2>MODO TESTE</h2>
   <div class="row">
@@ -1462,24 +1463,30 @@ if(VOZ){
    Cada linha do narrador (mesma limpeza em minúsculas de spk) é sintetizada no worker; se a síntese passar do prazo
    (~1,5–3,5 s), der erro, o áudio não tocar, ou o carregamento falhar/demorar, a linha sai na voz do navegador na hora.
    Duas linhas lentas seguidas: volta à voz do navegador até religar a chave. */
-const PV_VOICE='pt_BR-faber-medium',PV_LOAD_MS=150000;
+const PV_VOICES=[['pt_BR-faber-medium','Faber'],['pt_BR-cadu-medium','Cadu'],['pt_BR-jeff-medium','Jeff']],PV_LOAD_MS=150000;
+let PV_VOICE='pt_BR-faber-medium';try{const s=localStorage.getItem('lobo-pvoz');if(PV_VOICES.some(v=>v[0]===s))PV_VOICE=s;}catch(_){}
+const pvName=()=>(PV_VOICES.find(v=>v[0]===PV_VOICE)||['','Faber'])[1];
 const PV={on:false,ready:false,loading:false,slowOff:false,w:null,seq:0,cb:{},slow:0,cur:null,audio:null,url:null,tLoad:0};
 try{PV.on=(localStorage.getItem('lobo-piper')??'1')==='1';}catch(_){}
 const PV_WORKER=[
-  "const V='"+PV_VOICE+"';let tts=null;",
+  "let V='pt_BR-faber-medium';let tts=null;",
+  "const RH='../../../../rhasspy/piper-voices/resolve/main/pt/pt_BR/';",
+  "const XV={'pt_BR-cadu-medium':RH+'cadu/medium/pt_BR-cadu-medium.onnx','pt_BR-jeff-medium':RH+'jeff/medium/pt_BR-jeff-medium.onnx'};",
+  "const JP=JSON.parse;JSON.parse=function(t,r){const o=JP.call(this,t,r);try{if(o&&o.inference&&o.espeak){o.inference.noise_scale=0.667;o.inference.noise_w=0.8;o.inference.length_scale=1.05;}}catch(_){}return o;};",
   "const SRC=['https://cdn.jsdelivr.net/npm/@diffusionstudio/vits-web@1.0.3/+esm','https://cdn.jsdelivr.net/npm/@diffusionstudio/vits-web/+esm',",
   "  'https://cdn.jsdelivr.net/npm/@mintplex-labs/piper-tts-web@1.0.4/+esm','https://cdn.jsdelivr.net/npm/@mintplex-labs/piper-tts-web/+esm'];",
   "const E=e=>String(e&&e.message||e);",
   "onmessage=async ev=>{const m=ev.data||{};",
-  "  if(m.op==='load'){",
+  "  if(m.op==='load'){if(m.v)V=m.v;",
   "    for(const s of SRC){try{const x=await import(s);if(x&&x.predict&&x.download){tts=x;break;}}catch(e){postMessage({op:'log',msg:s+': '+E(e)});}}",
   "    if(!tts){postMessage({op:'fail',msg:'biblioteca Piper não carregou'});return;}",
+  "    try{const PM=tts.PATH_MAP;if(PM)for(const k in XV)if(!PM[k])PM[k]=XV[k];}catch(e){postMessage({op:'log',msg:'PATH_MAP: '+E(e)});}",
   "    try{await tts.download(V,p=>{try{postMessage({op:'prog',loaded:p.loaded||0,total:p.total||0});}catch(_){}});",
   "      await tts.predict({text:'ok.',voiceId:V});postMessage({op:'ready'});}",
   "    catch(e){postMessage({op:'fail',msg:'voz '+V+': '+E(e)});}}",
   "  else if(m.op==='say'){try{const wav=await tts.predict({text:m.text,voiceId:V});const buf=await wav.arrayBuffer();",
   "      postMessage({op:'wav',id:m.id,buf},[buf]);}catch(e){postMessage({op:'err',id:m.id,msg:E(e)});}}};"].join('\n');
-function pvStatus(t){const e=$('x-piperSt');if(e&&t)e.textContent=t;const b=$('x-piper');
+function pvStatus(t){const e=$('x-piperSt');if(e&&t)e.textContent=t;const b=$('x-piper');const bv=$('x-pvoz');if(bv)bv.textContent='🗣️ Voz: '+pvName()+' (toque para trocar)';
   if(b){b.textContent='🎙️ Voz natural (Piper, beta): '+(PV.on?'ON':'OFF');b.setAttribute('aria-pressed',String(PV.on));}}
 function pvUse(){return PV.on&&PV.ready&&!PV.slowOff&&!!PV.w;}
 function pvFail(why){clearTimeout(PV.tLoad);PV.loading=false;PV.ready=false;
@@ -1494,12 +1501,12 @@ function pvLoad(){if(PV.ready||PV.loading)return;PV.loading=true;PV.slowOff=fals
   w.onmessage=e=>{const m=e.data||{};
     if(m.op==='prog'){if(!PV.loading)return;const p=m.total?Math.min(100,Math.round(m.loaded*100/m.total)):0;
       pvStatus('Carregando voz natural… '+p+'%'+(m.total?' de '+Math.max(1,Math.round(m.total/1048576))+' MB':''));}
-    else if(m.op==='ready'){clearTimeout(PV.tLoad);PV.loading=false;PV.ready=true;PV.slow=0;pvStatus('Voz natural pronta ('+PV_VOICE+')');}
+    else if(m.op==='ready'){clearTimeout(PV.tLoad);PV.loading=false;PV.ready=true;PV.slow=0;pvStatus('Voz natural pronta ('+pvName()+')');}
     else if(m.op==='fail')pvFail(m.msg||'erro');
     else if(m.op==='wav'||m.op==='err'){const f=PV.cb[m.id];delete PV.cb[m.id];if(f)f(m);}
     else if(m.op==='log'){try{console.warn('[lobo][piper] '+m.msg);}catch(_){}}};
   w.onerror=e=>{if(e&&e.preventDefault)e.preventDefault();pvFail('erro no worker'+(e&&e.message?': '+e.message:''));};
-  try{w.postMessage({op:'load'});}catch(err){pvFail('worker: '+(err&&err.message||err));}}
+  try{w.postMessage({op:'load',v:PV_VOICE});}catch(err){pvFail('worker: '+(err&&err.message||err));}}
 /* para a fala Piper no ar (linha nova, som desligado, stopVoice); avisa o fim da linha como a voz do navegador faz */
 function pvStop(){const c=PV.cur;PV.cur=null;
   if(PV.audio){const a=PV.audio;PV.audio=null;a.onended=a.onerror=a.onplaying=null;try{a.pause();}catch(_){}}
@@ -1539,8 +1546,12 @@ function pvLine(t,done,st){
   try{PV.w.postMessage({op:'say',id:c.id,text:tx});}catch(err){fall('worker: '+(err&&err.message||err));}
   return true;}
 $('x-piper').onclick=()=>{PV.on=!PV.on;try{localStorage.setItem('lobo-piper',PV.on?'1':'0');}catch(_){}
-  if(PV.on){PV.slowOff=false;PV.slow=0;if(PV.ready)pvStatus('Voz natural pronta ('+PV_VOICE+')');else pvLoad();}
+  if(PV.on){PV.slowOff=false;PV.slow=0;if(PV.ready)pvStatus('Voz natural pronta ('+pvName()+')');else pvLoad();}
   else{pvStop();pvStatus('Voz natural desligada · usando a voz do navegador');}};
+$('x-pvoz').onclick=()=>{const i=PV_VOICES.findIndex(v=>v[0]===PV_VOICE);PV_VOICE=PV_VOICES[(i+1)%PV_VOICES.length][0];
+  try{localStorage.setItem('lobo-pvoz',PV_VOICE);}catch(_){}
+  pvStop();clearTimeout(PV.tLoad);try{if(PV.w)PV.w.terminate();}catch(_){}PV.w=null;PV.ready=false;PV.loading=false;
+  if(PV.on){PV.slowOff=false;PV.slow=0;pvLoad();}else pvStatus('Voz '+pvName()+' escolhida · ligue a voz natural para ouvir');};
 pvStatus(PV.on?'Voz natural: vai carregar…':'Voz natural desligada · usando a voz do navegador');
 if(PV.on)setTimeout(pvLoad,1500);
 function stopVoice(){const c=vc;vc=null;clearTimeout(vTimer);if(VOZ)vKill();pvStop();duck(false);
