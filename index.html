@@ -1473,8 +1473,8 @@ const PV_WORKER=[
   "const RH='../../../../rhasspy/piper-voices/resolve/main/pt/pt_BR/';",
   "const XV={'pt_BR-cadu-medium':RH+'cadu/medium/pt_BR-cadu-medium.onnx','pt_BR-jeff-medium':RH+'jeff/medium/pt_BR-jeff-medium.onnx'};",
   "const JP=JSON.parse;JSON.parse=function(t,r){const o=JP.call(this,t,r);try{if(o&&o.inference&&o.espeak){o.inference.noise_scale=0.667;o.inference.noise_w=0.8;o.inference.length_scale=1.05;}}catch(_){}return o;};",
-  "const SRC=['https://cdn.jsdelivr.net/npm/@diffusionstudio/vits-web@1.0.3/+esm','https://cdn.jsdelivr.net/npm/@diffusionstudio/vits-web/+esm',",
-  "  'https://cdn.jsdelivr.net/npm/@mintplex-labs/piper-tts-web@1.0.4/+esm','https://cdn.jsdelivr.net/npm/@mintplex-labs/piper-tts-web/+esm'];",
+  "const SRC=['https://cdn.jsdelivr.net/npm/@mintplex-labs/piper-tts-web@1.0.4/+esm','https://cdn.jsdelivr.net/npm/@mintplex-labs/piper-tts-web/+esm',",
+  "  'https://cdn.jsdelivr.net/npm/@diffusionstudio/vits-web@1.0.3/+esm','https://cdn.jsdelivr.net/npm/@diffusionstudio/vits-web/+esm'];",
   "const E=e=>String(e&&e.message||e);",
   "onmessage=async ev=>{const m=ev.data||{};",
   "  if(m.op==='load'){if(m.v)V=m.v;",
@@ -1526,7 +1526,7 @@ function pvLine(t,done,st){
     try{console.warn('[lobo][piper] '+why+' → voz do navegador nesta linha');}catch(_){}
     if(!ssLine(t,done,st)){c.fin=true;if(c.st){const f=c.st;c.st=null;f();}   // sem voz do navegador: só a legenda, tempo de leitura
       setTimeout(()=>{if(done)done();},tx.length*45+800);}};
-  c.tm=setTimeout(()=>fall('síntese lenta',true),Math.min(9000,3000+tx.length*45));
+  c.tm=setTimeout(()=>fall('síntese lenta',true),Math.min(14000,5000+tx.length*70));
   PV.cb[c.id]=m=>{if(c.dead||PV.cur!==c)return;clearTimeout(c.tm);
     if(m.op!=='wav'||!m.buf){fall('erro na síntese: '+(m.msg||'?'),true);return;}
     PV.slow=0;
