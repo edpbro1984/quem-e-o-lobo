@@ -1316,10 +1316,13 @@ function drawPhoto(x,t){const D=PH.D,M=D.mouth,L=D.lip;
   /* micro-movimentos com ruído (nada de vai-e-volta mecânico) */
   const nx=Math.sin(t*.31+PHN.a)*1.4+Math.sin(t*.83+PHN.b)*.7+Math.sin(t*2.1)*.25;
   const ny=Math.sin(t*.27+PHN.b)*1+Math.sin(t*1.13+PHN.a)*.4;
-  const tx=A.hx*1.1+A.turn*11+nx,ty=A.hy*1.15+ny,rot=A.tilt*.42+Math.sin(t*.19+PHN.a)*.006,sc=1+(A.breath||0)*.0025;
+  const tx=A.hx*1.1+A.turn*4+nx,ty=A.hy*1.15+ny,rot=A.tilt*.42+Math.sin(t*.19+PHN.a)*.006,sc=1+(A.breath||0)*.0025;
   const pvx=380,pvy=640;
-  x.save();x.translate(pvx+tx,pvy+ty);x.rotate(rot);x.scale(sc*(1-Math.abs(A.turn)*.02),sc);x.translate(-pvx,-pvy);
-  x.drawImage(PH.base,0,0,D.W,D.H);
+  const ctx=x;
+  if(!PH.c0){PH.c0=mk(D.W,D.H);PH.g0=PH.c0.getContext('2d');PH.c1=mk(D.W,D.H);PH.g1=PH.c1.getContext('2d');
+    PH.cb=mk(D.W,D.H);const gb=PH.cb.getContext('2d');gb.drawImage(PH.base,0,0);gb.globalCompositeOperation='destination-in';
+    const fm=gb.createLinearGradient(0,505,0,555);fm.addColorStop(0,'rgba(0,0,0,0)');fm.addColorStop(1,'#000');gb.fillStyle=fm;gb.fillRect(0,0,D.W,D.H);}
+  x=PH.g0;x.setTransform(1,0,0,1,0,0);x.drawImage(PH.base,0,0);
   /* boca: deformação suave por colunas (lábio inferior mexe mais, queixo menos, pescoço fixo) */
   if(PH.lt==null)PH.lt=t;const pdt=cl(t-PH.lt,0,.1);PH.lt=t;
   const tgt=(A.fo!=null?A.fo:A.open);PH.po=lerp(PH.po||0,tgt,cl(pdt*(tgt>(PH.po||0)?15:10),0,1));
@@ -1346,7 +1349,34 @@ function drawPhoto(x,t){const D=PH.D,M=D.mouth,L=D.lip;
   const bl=A.blink>0?Math.sin(A.blink*Math.PI):0;
   const lid=cl(Math.max(bl,A.sq*.3+Math.max(0,A.smile-.6)*.25+(A.idle&&A.idle.ty==='think'?.12:0)-A.wideE*.1),0,1);
   if(lid>.04)[[PH.eL,D.eyeL],[PH.eR,D.eyeR]].forEach(e=>{x.drawImage(e[0],e[1].x,e[1].y-1,e[1].w,(e[1].h+1)*lid);});
-  x.restore();}
+  /* pose da cabeça: olhadas pros lados, pra baixo (ler o chat) e pra cima, com mola suave */
+  const talkingNow=A.talkAmt>.3;
+  if(!PH.nxt||t>PH.nxt){const r=Math.random();let ty2=0,tp=0,hold;
+    if(r<.42){ty2=rnd(-.22,.22);tp=rnd(-.15,.15);hold=rnd(1.8,4.5);}
+    else if(r<.7){ty2=(Math.random()<.5?-1:1)*rnd(.55,1);tp=rnd(-.2,.15);hold=rnd(1,2.6);}
+    else if(r<.86){ty2=rnd(-.3,.3);tp=rnd(.55,.9);hold=rnd(1.2,2.8);}
+    else{ty2=(Math.random()<.5?-1:1)*rnd(.3,.7);tp=rnd(-.6,-.3);hold=rnd(.9,1.8);}
+    if(talkingNow){ty2*=.75;tp*=.65;}
+    PH.ty=ty2;PH.tp=tp;PH.nxt=t+hold;}
+  if(A.idle&&A.idle.ty==='look'){PH.ty=A.idle.dir*.9;}
+  if(A.react>.3){PH.ty=0;PH.tp=0;}
+  PH.yaw=PH.yaw||0;PH.yv=PH.yv||0;PH.pit=PH.pit||0;PH.pv=PH.pv||0;
+  const kk=28,dd=2*Math.sqrt(kk)*.92;for(let s=0;s<2;s++){const h=pdt/2;
+    PH.yv+=((PH.ty-PH.yaw)*kk-PH.yv*dd)*h;PH.yaw+=PH.yv*h;PH.pv+=((PH.tp-PH.pit)*kk-PH.pv*dd)*h;PH.pit+=PH.pv*h;}
+  const yw=PH.yaw+Math.sin(t*.53+PHN.a)*.05,pt=PH.pit+Math.sin(t*.41+PHN.b)*.04;
+  /* deformação 3D falsa: colunas (virar) e linhas (inclinar) */
+  const g1=PH.g1,HC=385,AMX=18,AMY=11,stp=3;g1.setTransform(1,0,0,1,0,0);g1.clearRect(0,0,D.W,D.H);g1.drawImage(PH.c0,0,0);
+  const fx=xx=>yw*AMX*Math.exp(-Math.pow((xx-HC)/125,2));
+  for(let xx=HC-270;xx<HC+270;xx+=stp){const d0=fx(xx),d1=fx(xx+stp);g1.drawImage(PH.c0,xx,0,stp,D.H,xx+d0,0,stp+d1-d0+.7,D.H);}
+  const g0=PH.g0;g0.clearRect(0,0,D.W,D.H);g0.drawImage(PH.c1,0,0);g1.clearRect(0,0,D.W,D.H);g1.drawImage(PH.c0,0,0);
+  const fy=yy=>pt*AMY*Math.exp(-Math.pow((yy-250)/115,2));
+  for(let yy=60;yy<470;yy+=stp){const d0=fy(yy),d1=fy(yy+stp);g1.drawImage(PH.c0,0,yy,D.W,stp,0,yy+d0,D.W,stp+d1-d0+.7);}
+  g1.drawImage(PH.cb,0,0);
+  /* luz: o lado que vira fica um pouco mais escuro */
+  if(Math.abs(yw)>.05){const sx=HC+Math.sign(yw)*95,k=Math.min(.16,Math.abs(yw)*.14);const sg=g1.createRadialGradient(sx,270,10,sx,270,140);
+    sg.addColorStop(0,`rgba(0,0,0,${k})`);sg.addColorStop(1,'rgba(0,0,0,0)');g1.fillStyle=sg;g1.fillRect(sx-140,130,280,280);}
+  ctx.save();ctx.translate(pvx+tx,pvy+ty);ctx.rotate(rot+yw*.012);ctx.scale(sc,sc);ctx.translate(-pvx,-pvy);
+  ctx.drawImage(PH.c1,0,0,D.W,D.H);ctx.restore();}
 let last=0,acc=0,dpr=Math.min(2,window.devicePixelRatio||1);
 function frame(now){requestAnimationFrame(frame);
   const dt=Math.min(.05,(now-(last||now))/1000);last=now;acc+=dt;if(acc<1/40)return;const step=acc;acc=0;
@@ -1371,7 +1401,7 @@ function frame(now){requestAnimationFrame(frame);
   if(!bub){const s2=Math.min(cw/W,ch/H);x.setTransform(s2,0,0,s2,(cw-W*s2)/2,(ch-H*s2)/2);drawHUD(x,t,now);}
   }catch(err){try{console.error('[lobo][avatar]',err);}catch(_){}}}
 requestAnimationFrame(frame);
-window.AVdebug=A;window.AVon=AVon;window.AVoff=AVoff;
+window.AVdebug=A;window.PHdbg=PH;window.AVon=AVon;window.AVoff=AVoff;
 })();
 
 /* Narrador: fila de falas -> legenda com máquina de escrever (40 ms/letra) + speechSynthesis pt-BR.
